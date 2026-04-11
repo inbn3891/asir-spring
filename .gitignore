@@ -67,7 +67,7 @@ logs/
 # [Dev Container / Docker]
 # 루트나 backend 어디에 있든 무시하도록 설정
 # **/.devcontainer/
-**/docker-compose.yml
+# **/docker-compose.yml
 # **/Dockerfile
 
 # [Backend - Java/Spring]

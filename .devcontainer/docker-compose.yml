@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  db:
+    image: mariadb:10.11
+    container_name: asir-db
+    restart: always  # 서버 재부팅 시 자동 실행
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_PASSWORD} # 보안을 위해 환경변수 사용 권장
+      MARIADB_DATABASE: asir_db
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - asir-db-data:/var/lib/mysql
+
+  app:
+    # CI/CD에서 빌드한 이미지를 사용하거나, Dockerfile 경로 지정
+    image: ${DOCKER_USERNAME}/asir-spring:latest 
+    container_name: a-sir-app
+    restart: always
+    environment:
+      # DB 호스트를 서비스명인 'db'로 지정하여 내부 네트워크 통신
+      SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/asir_db
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  asir-db-data:
