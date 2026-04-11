@@ -1,0 +1,56 @@
+# .github/workflows/front-deploy.yml
+name: Front Deploy (React)
+
+on:
+  push:
+    branches: [main]
+    # 'front' 폴더 내의 파일이 변경될 때만 이 액션을 실행합니다.
+    paths:
+      - 'front/**'
+      - '.github/workflows/front-deploy.yml'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    # 모든 실행 명령어의 기본 경로를 'front' 폴더로 고정합니다.
+    defaults:
+      run:
+        working-directory: ./front
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v3
+
+      - name: Node.js 설정 (Vite 권장 버전)
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20' # Vite는 최신 Node.js 버전을 권장합니다.
+
+      - name: 의존성 설치
+        run: npm install
+
+      - name: 리액트 빌드
+        run: npm run build # Vite 기준 'dist' 폴더가 생성됩니다.
+
+      - name: EC2로 빌드 파일 전송 (SCP)
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}        # GitHub Secrets에 등록된 EC2 IP
+          username: ubuntu                    # EC2 접속 사용자명
+          key: ${{ secrets.EC2_SSH_KEY }}      # GitHub Secrets에 등록된 .pem 키 내용
+          port: 22
+          source: "front/dist/*"              # Vite 빌드 결과물 폴더
+          target: "/var/www/html"             # EC2 내 Nginx가 바라보는 정적 파일 경로
+          strip_components: 2                 # 'front/dist/' 경로를 제거하고 내용물만 전송
+          overwrite: true                     # 기존 파일 덮어쓰기
+
+      - name: Nginx 재시작 (선택 사항)
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # 정적 파일만 변경 시 Nginx 재시작이 필수는 아니지만, 안전을 위해 실행할 수 있습니다.
+            sudo systemctl reload nginx || true

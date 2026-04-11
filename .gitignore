@@ -1,0 +1,104 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+# AWS 키
+*.pem
+
+# 로그
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 환경변수 (절대 올리면 안됨)
+.env
+*.env
+application-secret.yml
+application-local.yml
+
+# dev 컨테이너 환경
+.devcontainer/
+docker-compose.yml
+
+
+# [Common / OS]
+.DS_Store
+Thumbs.db
+*.log
+logs/
+.vscode/
+.idea/
+*.pem
+.env
+*.env
+
+# [Dev Container / Docker]
+# 루트나 backend 어디에 있든 무시하도록 설정
+# **/.devcontainer/
+**/docker-compose.yml
+# **/Dockerfile
+
+# [Backend - Java/Spring]
+backend/.gradle/
+backend/build/
+backend/out/
+backend/bin/
+backend/.settings/
+backend/.classpath
+backend/.project
+backend/.factorypath
+backend/application-secret.yml
+backend/application-local.yml
+
+# [Frontend - React/Node]
+front/node_modules/
+front/dist/
+front/build/
+front/.eslintcache
+front/npm-debug.log*
+front/yarn-debug.log*
+front/yarn-error.log*
+front/.pnp*
+front/.pnp.js
+
+# [Exceptions]
+!**/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
