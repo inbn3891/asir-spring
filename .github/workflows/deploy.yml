@@ -39,8 +39,9 @@ jobs:
       - name: Docker 이미지 빌드 및 푸쉬
         run: |
           docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}
-          # 빌드 컨텍스트를 현재 폴더(./backend)로 지정합니다.
-          docker build -t ${{secrets.DOCKER_USERNAME}}/asir-spring:latest .
+          # 현재 working-directory가 ./backend이므로, 
+          # 해당 폴더 안에 있는 Dockerfile을 사용하도록 설정합니다.
+          docker build -t ${{secrets.DOCKER_USERNAME}}/asir-spring:latest -f Dockerfile .
           docker push ${{secrets.DOCKER_USERNAME}}/asir-spring:latest
 
       - name : EC2 배포
