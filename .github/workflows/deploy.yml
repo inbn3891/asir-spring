@@ -57,4 +57,5 @@ jobs:
                     --name a-sir-app \
                     -p 8080:8080 \
                     -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+                    -e AI_SERVER_URL=${{ secrets.AI_SERVER_URL }} \
                     ${{ secrets.DOCKER_USERNAME }}/asir-spring:latest
