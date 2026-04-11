@@ -1,0 +1,30 @@
+{
+    "name": "A-SIR Java 17 Environment",
+    "dockerComposeFile": [
+        "docker-compose.yml"
+    ],
+    "service": "app",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+    "features": {
+            "ghcr.io/devcontainers/features/node:1": {
+                "version": "20" 
+            }
+        },
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "vscjava.vscode-java-pack",               // 자바 자동 완성 핵심
+                "vscjava.vscode-spring-boot-extension-pack", // 스프링 부트 지원
+                "redhat.vscode-yaml",
+                "ms-azuretools.vscode-docker",
+                "dsznajder.es7-react-js-snippets", // 리액트 개발 필수 확장
+                "dbaeumer.vscode-eslint"
+            ]
+        }
+    },
+    "forwardPorts": [8080, 3306, 5173],
+    "shutdownAction": "stopCompose",
+    "remoteUser": "vscode"
+}

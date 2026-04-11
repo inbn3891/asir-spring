@@ -53,11 +53,6 @@ Thumbs.db
 application-secret.yml
 application-local.yml
 
-# dev 컨테이너 환경
-.devcontainer/
-docker-compose.yml
-
-
 # [Common / OS]
 .DS_Store
 Thumbs.db
