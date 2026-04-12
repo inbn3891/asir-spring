@@ -1,0 +1,35 @@
+# 프로젝트 루트/docker-compose.prod.yml
+
+services:
+  db:
+    image: mariadb:10.11
+    container_name: asir-db
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_PASSWORD}
+      MARIADB_DATABASE: asir_db
+      TZ: Asia/Seoul
+    volumes:
+      - asir-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ${DOCKER_USERNAME}/asir-spring:latest
+    container_name: asir-app
+    restart: always
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/asir_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  asir-db-data:
