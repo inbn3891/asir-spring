@@ -1,7 +1,7 @@
 spring:
   datasource:
     # Docker Compose 서비스 명인 'db'를 사용합니다.
-    url: jdbc:mariadb://db:3306/asir_db
+    url: jdbc:mariadb://db:3306/asir_db?createDatabaseIfNotExist=true
     username: root
     password: ${DB_PASSWORD}
     driver-class-name: org.mariadb.jdbc.Driver
@@ -13,18 +13,3 @@ spring:
     properties:
       hibernate:
         format_sql: true
-
-
-# AI 서버(Flask) 통신 설정
-ai-server:
-  # Flask 인스턴스의 프라이빗 IP와 포트를 적으세요
-  url: ${AI_SERVER_URL:http://localhost:5000}
-  api:
-    ocr: "/api/ocr"
-    detect: "/api/detect"
-
-# 만약 타임아웃 설정이 필요하다면 (AI 연산은 시간이 걸릴 수 있음)
-rest-template:
-  timeout:
-    connect: 5000
-    read: 30000
