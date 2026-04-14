@@ -17,7 +17,7 @@ import org.springframework.http.HttpMethod;
 @EnableWebSecurity
 public class SecurityConfig {
 
- @Bean
+@Bean
 public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     System.out.println("!!!! 보안 설정 클래스 로드 성공 !!!!"); // 이 로그가 터미널에 뜨는지 확인
 
