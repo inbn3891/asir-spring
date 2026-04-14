@@ -34,6 +34,19 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     return http.build();
     }
 
+@Bean
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration config = new CorsConfiguration();
+    config.addAllowedOriginPattern("*");
+    config.addAllowedMethod("*");
+    config.addAllowedHeader("*");
+    
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", config);
+    return source;
+}
+
+
     @Bean
     public UserDetailsService userDetailsService() {
         return new InMemoryUserDetailsManager();
