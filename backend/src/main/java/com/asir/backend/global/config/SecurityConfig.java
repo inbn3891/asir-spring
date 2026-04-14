@@ -21,6 +21,7 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     System.out.println("!!!! 보안 설정 클래스 로드 성공 !!!!"); // 이 로그가 터미널에 뜨는지 확인
 
     http
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .csrf(csrf -> csrf.disable())
         .headers(headers -> headers.frameOptions(frame -> frame.disable()))
         .authorizeHttpRequests(auth -> auth
