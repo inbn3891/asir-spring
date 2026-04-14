@@ -21,6 +21,8 @@ public class IncidentService {
             throw new IllegalStateException("이미 동일한 영상으로 신고된 내역이 있습니다.");
         });
 
+        
+
         Incident incident = Incident.builder()
         .licensePlate(request.getLicensePlate())
         .videoUrl(request.getVideoUrl())
