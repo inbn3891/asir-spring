@@ -1,6 +1,5 @@
 spring:
   datasource:
-    # Docker Compose 서비스 명인 'db'를 사용합니다.
     url: jdbc:mariadb://db:3306/asir_db?createDatabaseIfNotExist=true
     username: root
     password: ${DB_PASSWORD}
@@ -14,7 +13,6 @@ spring:
       hibernate:
         format_sql: true
 
-spring:
   data:
     redis:
       host: ${SPRING_REDIS_HOST:localhost}
