@@ -21,29 +21,19 @@ public class SecurityConfig {
 
 @Bean
 public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-    System.out.println("!!!! 보안 설정 클래스 로드 성공 !!!!"); // 이 로그가 터미널에 뜨는지 확인
-
     http
-        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .csrf(csrf -> csrf.disable())
-        .sessionManagement(session -> 
-    session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .headers(headers -> headers.frameOptions(frame -> frame.disable()))
+        .cors(cors -> cors.disable())
+        .sessionManagement(session ->
+            session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-            .requestMatchers(
-                "/api/v1/incidents/**",
-                "/v3/api-docs/**",
-                "/swagger-ui/**",
-                "/swagger-ui.html"
-            ).permitAll()
-            .anyRequest().authenticated()
+            .anyRequest().permitAll()
         )
         .formLogin(form -> form.disable())
         .httpBasic(basic -> basic.disable());
 
     return http.build();
-    }
+}
 
 @Bean
 public CorsConfigurationSource corsConfigurationSource() {
