@@ -1,5 +1,3 @@
-# 프로젝트 루트/docker-compose.prod.yml
-
 services:
   db:
     image: mariadb:10.11
@@ -17,6 +15,13 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    container_name: asir-redis
+    restart: always
+    ports:
+      - "6379:6379"
+
   app:
     image: ${DOCKER_USERNAME}/asir-spring:latest
     container_name: asir-app
@@ -25,11 +30,15 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/asir_db
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
     ports:
       - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
 
 volumes:
   asir-db-data:
