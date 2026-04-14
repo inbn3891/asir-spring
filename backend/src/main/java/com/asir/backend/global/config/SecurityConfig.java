@@ -47,12 +47,12 @@ public CorsConfigurationSource corsConfigurationSource() {
     config.addAllowedOriginPattern("*");
     config.addAllowedMethod("*");
     config.addAllowedHeader("*");
+    config.setAllowCredentials(false); // ← 추가
     
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", config);
     return source;
 }
-
 
     @Bean
     public UserDetailsService userDetailsService() {
