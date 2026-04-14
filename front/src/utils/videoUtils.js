@@ -16,5 +16,6 @@ export async function computeHash(file) {
       .join("");
   }
   // HTTP 환경 폴백
-  return `${file.name}-${file.size}-${Date.now()}`;
+  const raw = `${file.name}-${file.size}-${Date.now()}`;
+  return raw.substring(0, 64);
 }
