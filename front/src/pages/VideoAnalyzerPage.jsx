@@ -3,41 +3,52 @@ import VideoUploader from "../components/VideoUploader";
 import VideoPlayer from "../components/VideoPlayer";
 import Timeline from "../components/Timeline";
 import ReportForm from "../components/ReportForm";
+import Header from "../components/Header";
+import AIResultCard from "../components/AIResultCard";
 import { MODELS } from "../features/ai/modelList";
-import { runYolo, runLstm } from "../features/ai/ModelRunner";
+import {
+  runAllDetectron2,
+  runAllYolo,
+  computeAllViolations,
+  runLstm,
+  aggregateResults,
+  captureEvidenceImage,
+} from "../features/ai/ModelRunner";
 import { computeHash } from "../utils/videoUtils";
+import { styles } from "../styles/VideoAnalyzerStyles";
 
-const MODEL_FILE_MAP = {
-  signal:   "model_객체탐지_신호위반",
-  helmet:   "model_객체탐지_안전모",
-  center:   "model_객체탐지_중앙선침범",
-  lane:     "model_객체탐지_진로변경",
-};
+const ANALYSIS_FPS = 3;
 
 export default function VideoAnalyzerPage() {
-  const [video, setVideo]             = useState(null);
-  const [trimStart, setTrimStart]     = useState(0);
-  const [trimEnd, setTrimEnd]         = useState(0);
+  const [video, setVideo]           = useState(null);
+  const [trimStart, setTrimStart]   = useState(0);
+  const [trimEnd, setTrimEnd]       = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [isPlaying, setIsPlaying]     = useState(false);
-  const [aiResults, setAiResults]     = useState({});
-  const [aiRunning, setAiRunning]     = useState(false);
-  const [aiProgress, setAiProgress]   = useState(0);
-  const [step, setStep]               = useState(1);
+  const [isPlaying, setIsPlaying]   = useState(false);
+  const [aiResults, setAiResults]   = useState({});
+  const [aiRunning, setAiRunning]   = useState(false);
+  const [step, setStep]             = useState(1);
+
+  const [pipelinePhase, setPipelinePhase] = useState('');
+  const [detectronProgress, setDetectronProgress] = useState({});
+  const [yoloProgress, setYoloProgress] = useState({});
+  const [lstmProgress, setLstmProgress] = useState(0);
+  const [overallProgress, setOverallProgress] = useState(0);
+  const [phaseTiming, setPhaseTiming] = useState({});
+  const [evidenceImages, setEvidenceImages] = useState({});
 
   const videoRef = useRef(null);
 
-  /* ── 파일 로드 ── */
   const handleFile = useCallback(async (file) => {
     if (!file || !file.type.startsWith("video/")) return;
     const url  = URL.createObjectURL(file);
     const hash = await computeHash(file);
     setVideo({ file, url, hash, duration: 0 });
     setAiResults({});
+    setEvidenceImages({});
     setStep(2);
   }, []);
 
-  /* ── 영상 메타 ── */
   useEffect(() => {
     const el = videoRef.current;
     if (!el || !video) return;
@@ -50,7 +61,6 @@ export default function VideoAnalyzerPage() {
     return () => el.removeEventListener("loadedmetadata", onLoaded);
   }, [video?.url, video]);
 
-  /* ── 시간 업데이트 ── */
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
@@ -64,7 +74,6 @@ export default function VideoAnalyzerPage() {
     return () => el.removeEventListener("timeupdate", onTime);
   }, [trimEnd, trimStart]);
 
-  /* ── 재생/정지 ── */
   const togglePlay = () => {
     const el = videoRef.current;
     if (!el) return;
@@ -76,76 +85,193 @@ export default function VideoAnalyzerPage() {
     }
   };
 
-  const handleSeek = (t) => {
-    if (videoRef.current) videoRef.current.currentTime = t;
-  };
+  const handleSeek = (t) => { if (videoRef.current) videoRef.current.currentTime = t; };
+  const handleTrimStart = (t) => { setTrimStart(t); if (videoRef.current) videoRef.current.currentTime = t; };
 
-  const handleTrimStart = (t) => {
-    setTrimStart(t);
-    if (videoRef.current) videoRef.current.currentTime = t;
-  };
-
-  /* ── AI 탐지 ── */
   const runAI = async () => {
+    const el = videoRef.current;
+    if (!el) return;
+
+    const duration = trimEnd - trimStart;
+    const sampleCount = Math.max(1, Math.round(duration * ANALYSIS_FPS));
+    console.log(`분석 구간: ${duration.toFixed(1)}초, 프레임 수: ${sampleCount} (${ANALYSIS_FPS}fps)`);
+
     setAiRunning(true);
     setAiResults({});
-    setAiProgress(0);
+    setEvidenceImages({});
+    setPipelinePhase('detectron2');
+    setDetectronProgress({});
+    setYoloProgress({});
+    setLstmProgress(0);
+    setOverallProgress(0);
+    setPhaseTiming({});
 
-    const el = videoRef.current;
-    const results = {};
+    const timing = {};
 
-    for (let i = 0; i < MODELS.length; i++) {
-      const m = MODELS[i];
-      let result;
-      if (m.type === "yolo") {
-        result = await runYolo(MODEL_FILE_MAP[m.id], el);
-      } else {
-        result = await runLstm(el);
+    try {
+      /* ── 1단계: Detectron2 ── */
+      const t1 = performance.now();
+      const terrainCache = await runAllDetectron2(
+        el, trimStart, trimEnd, sampleCount,
+        ({ modelId, frameIndex, sampleCount: sc, totalProgress }) => {
+          setDetectronProgress(prev => ({
+            ...prev,
+            [modelId]: {
+              status: '분석중',
+              currentFrame: frameIndex + 1,
+              totalFrames: sc,
+              progress: Math.round(((frameIndex + 1) / sc) * 100),
+            },
+          }));
+          setOverallProgress(Math.round(totalProgress * 0.35));
+        }
+      );
+      timing.detectron2 = +((performance.now() - t1) / 1000).toFixed(1);
+
+      setDetectronProgress(prev => {
+        const updated = { ...prev };
+        for (const key of Object.keys(updated)) {
+          updated[key] = { ...updated[key], status: '완료', progress: 100 };
+        }
+        return updated;
+      });
+      setPhaseTiming(prev => ({ ...prev, detectron2: timing.detectron2 }));
+
+      /* ── 2단계: YOLOv5 ── */
+      setPipelinePhase('yolo');
+      const t2 = performance.now();
+      const objectCache = await runAllYolo(
+        el, trimStart, trimEnd, sampleCount,
+        ({ modelId, frameIndex, sampleCount: sc, totalProgress }) => {
+          setYoloProgress(prev => ({
+            ...prev,
+            [modelId]: {
+              status: '분석중',
+              currentFrame: frameIndex + 1,
+              totalFrames: sc,
+              progress: Math.round(((frameIndex + 1) / sc) * 100),
+            },
+          }));
+          setOverallProgress(35 + Math.round(totalProgress * 0.35));
+        }
+      );
+      timing.yolo = +((performance.now() - t2) / 1000).toFixed(1);
+
+      setYoloProgress(prev => {
+        const updated = { ...prev };
+        for (const key of Object.keys(updated)) {
+          updated[key] = { ...updated[key], status: '완료', progress: 100 };
+        }
+        return updated;
+      });
+      setPhaseTiming(prev => ({ ...prev, yolo: timing.yolo }));
+
+      /* ── 3단계: 위반 판정 (유형별) ── */
+      setPipelinePhase('iou');
+      setOverallProgress(75);
+      const t3 = performance.now();
+      const violationResults = computeAllViolations(terrainCache, objectCache, sampleCount);
+      timing.iou = +((performance.now() - t3) / 1000).toFixed(2);
+      setPhaseTiming(prev => ({ ...prev, iou: timing.iou }));
+
+      // ===== 디버그 =====
+      console.group('🛣️ Detectron2 결과 요약');
+      for (let s = 0; s < sampleCount; s++) {
+        const frame = terrainCache[s];
+        const found = ['traffic', 'signal', 'center', 'lane']
+          .filter(k => frame[k]?.found)
+          .map(k => `${k}(${frame[k].regions.length}개)`);
+        if (found.length > 0) console.log(`프레임 ${s} (${frame.time.toFixed(2)}초): ${found.join(', ')}`);
       }
-      results[m.id] = result;
-      setAiProgress(Math.round(((i + 1) / MODELS.length) * 100));
-      setAiResults({ ...results });
-    }
+      console.groupEnd();
 
-    setAiRunning(false);
-    setStep(4);
+      console.group('🎯 YOLO 결과 요약');
+      for (let s = 0; s < sampleCount; s++) {
+        const frame = objectCache[s];
+        const detected = ['signal', 'helmet', 'center', 'lane']
+          .filter(k => frame[k]?.detected)
+          .map(k => `${k}(${(frame[k].confidence * 100).toFixed(0)}%)`);
+        if (detected.length > 0) console.log(`프레임 ${s} (${frame.time.toFixed(2)}초): ${detected.join(', ')}`);
+      }
+      console.groupEnd();
+
+      console.group('📐 위반 판정 결과 (세그멘테이션 마스크 기반)');
+      for (let s = 0; s < sampleCount; s++) {
+        for (const key of ['signal', 'center', 'lane']) {
+          const r = violationResults.mask[s][key];
+          if (r.violated) {
+            console.log(`✅ 프레임 ${s} (${violationResults.mask[s].time.toFixed(2)}초) - ${key}: 겹침=${(r.overlapRatio * 100).toFixed(1)}% 하단침범=${r.bottomInMask}`);
+          } else if (r.terrainFound && r.objectDetected) {
+            console.log(`❌ 프레임 ${s} - ${key}: 겹침=${(r.overlapRatio * 100).toFixed(1)}% (미달)`);
+          }
+        }
+      }
+      for (let s = 0; s < sampleCount; s++) {
+        const r = violationResults.helmet[s];
+        if (r.detected) console.log(`⛑️ 안전모미착용 프레임 ${s} (${r.time.toFixed(2)}초): 신뢰도=${(r.confidence * 100).toFixed(0)}%`);
+      }
+      console.groupEnd();
+
+      /* ── 4단계: LSTM ── */
+      setPipelinePhase('lstm');
+      const t4 = performance.now();
+      const lstmResult = await runLstm(
+        el, trimStart, trimEnd,
+        ({ totalProgress }) => {
+          setLstmProgress(totalProgress);
+          setOverallProgress(75 + Math.round(totalProgress * 0.2));
+        }
+      );
+      timing.lstm = +((performance.now() - t4) / 1000).toFixed(1);
+
+      console.group('📊 LSTM 결과');
+      console.log('violationClass:', lstmResult.violationClass, '(0=정상, 1=위반, 2=심각)');
+      console.log('confidence:', lstmResult.confidence);
+      console.log('isViolation:', lstmResult.isViolation);
+      console.groupEnd();
+      setPhaseTiming(prev => ({ ...prev, lstm: timing.lstm }));
+
+      /* ── 5단계: 결과 집계 ── */
+      setPipelinePhase('evidence');
+      setOverallProgress(95);
+      const finalResults = aggregateResults(violationResults, lstmResult, sampleCount);
+
+      const evidence = {};
+      for (const [modelId, result] of Object.entries(finalResults)) {
+        if (result.detected && result.evidenceData) {
+          try {
+            const imgDataUrl = await captureEvidenceImage(el, result.evidenceData);
+            evidence[modelId] = imgDataUrl;
+          } catch (err) {
+            console.error(`증거 이미지 생성 실패 (${modelId}):`, err);
+          }
+        }
+      }
+
+      setPipelinePhase('done');
+      setOverallProgress(100);
+      timing.total = +((timing.detectron2 || 0) + (timing.yolo || 0) + (timing.iou || 0) + (timing.lstm || 0)).toFixed(1);
+      setPhaseTiming(prev => ({ ...prev, total: timing.total }));
+
+      setAiResults(finalResults);
+      setEvidenceImages(evidence);
+
+    } catch (err) {
+      console.error('AI 파이프라인 오류:', err);
+    } finally {
+      setAiRunning(false);
+      setStep(4);
+    }
   };
 
-  const detections = MODELS.filter((m) => aiResults[m.id]?.detected);
+  const detections = MODELS.filter(m => m.visible && aiResults[m.id]?.detected);
 
   return (
     <div style={styles.root}>
       <div style={styles.bgGrid} />
-
-      {/* 헤더 */}
-      <header style={styles.header}>
-        <div style={styles.logo}>
-          <span style={styles.logoA}>A</span>
-          <span style={styles.logoSIR}>-SIR</span>
-        </div>
-        <p style={styles.headerSub}>교통법규 위반 AI 탐지 & 제보 시스템</p>
-        <div style={styles.steps}>
-          {["업로드", "편집", "AI 탐지", "제보"].map((label, i) => (
-            <div key={i} style={styles.stepItem}>
-              <div style={{
-                ...styles.stepDot,
-                background: step > i + 1 ? "#00e5a0" : step === i + 1 ? "#ff4d6d" : "rgba(255,255,255,0.15)",
-                boxShadow: step === i + 1 ? "0 0 12px #ff4d6d" : "none",
-              }}>
-                {step > i + 1 ? "✓" : i + 1}
-              </div>
-              <span style={{ ...styles.stepLabel, opacity: step >= i + 1 ? 1 : 0.35 }}>{label}</span>
-              {i < 3 && <div style={styles.stepLine} />}
-            </div>
-          ))}
-        </div>
-      </header>
-
+      <Header step={step} />
       <main style={styles.main}>
-        {/* STEP 1 */}
         {step === 1 && <VideoUploader onFile={handleFile} />}
-
-        {/* STEP 2~4 */}
         {video && step >= 2 && (
           <div style={styles.workspace}>
             <div style={styles.leftPanel}>
@@ -170,64 +296,28 @@ export default function VideoAnalyzerPage() {
                 onNext={() => setStep(3)}
               />
             </div>
-
             <div style={styles.rightPanel}>
-              {/* AI 탐지 카드 */}
               {step >= 3 && (
-                <div style={styles.card}>
-                  <h3 style={styles.cardTitle}>🤖 AI 위반 탐지</h3>
-                  <p style={styles.cardSub}>브라우저에서 직접 추론 (엣지 AI)</p>
-
-                  <div style={styles.modelList}>
-                    {MODELS.map((m) => {
-                      const r = aiResults[m.id];
-                      return (
-                        <div key={m.id} style={styles.modelItem}>
-                          <span style={{ fontSize: 18, width: 24 }}>{m.emoji}</span>
-                          <span style={{ flex: 1, fontSize: 14 }}>{m.label}</span>
-                          <span style={{ fontSize: 12, fontWeight: 600 }}>
-                            {aiRunning && !r ? (
-                              <span style={{ color: "#f0c040" }}>분석중…</span>
-                            ) : r ? (
-                              r.detected
-                                ? <span style={{ color: "#ff4d6d" }}>탐지 {Math.round(r.confidence * 100)}%</span>
-                                : <span style={{ color: "#00e5a0" }}>이상없음</span>
-                            ) : (
-                              <span style={{ color: "#555" }}>대기</span>
-                            )}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {aiRunning && (
-                    <div style={styles.progressWrap}>
-                      <div style={{ ...styles.progressBar, width: `${aiProgress}%` }} />
-                    </div>
-                  )}
-
-                  {!aiRunning && Object.keys(aiResults).length === 0 && (
-                    <button style={styles.btnAI} onClick={runAI}>⚡ AI 탐지 시작</button>
-                  )}
-                  {!aiRunning && Object.keys(aiResults).length > 0 && (
-                    <button style={{ ...styles.btnSecondary, width: "100%", marginTop: 12 }} onClick={runAI}>
-                      🔄 재탐지
-                    </button>
-                  )}
-                </div>
+                <AIResultCard
+                  aiResults={aiResults}
+                  aiRunning={aiRunning}
+                  overallProgress={overallProgress}
+                  pipelinePhase={pipelinePhase}
+                  detectronProgress={detectronProgress}
+                  yoloProgress={yoloProgress}
+                  lstmProgress={lstmProgress}
+                  phaseTiming={phaseTiming}
+                  evidenceImages={evidenceImages}
+                  onRun={runAI}
+                />
               )}
-
-              {/* 제보 폼 */}
               {step === 4 && (
                 <ReportForm video={video} detections={detections} MODELS={MODELS} aiResults={aiResults} />
               )}
-
-              {/* 다른 영상 */}
               {step === 4 && (
                 <button
                   style={{ ...styles.btnSecondary, width: "100%", marginTop: 8 }}
-                  onClick={() => { setVideo(null); setStep(1); setAiResults({}); }}
+                  onClick={() => { setVideo(null); setStep(1); setAiResults({}); setEvidenceImages({}); }}
                 >
                   + 다른 영상 제보하기
                 </button>
@@ -239,31 +329,3 @@ export default function VideoAnalyzerPage() {
     </div>
   );
 }
-
-const styles = {
-  root: { minHeight: "100vh", background: "#0a0c10", color: "#e8eaf0", fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", position: "relative", overflow: "hidden" },
-  bgGrid: { position: "fixed", inset: 0, backgroundImage: "linear-gradient(rgba(255,77,109,0.04) 1px, transparent 1px),linear-gradient(90deg, rgba(255,77,109,0.04) 1px, transparent 1px)", backgroundSize: "40px 40px", pointerEvents: "none", zIndex: 0 },
-  header: { position: "relative", zIndex: 1, padding: "28px 40px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" },
-  logo: { display: "flex", alignItems: "baseline", gap: 2, marginBottom: 4 },
-  logoA: { fontSize: 36, fontWeight: 900, color: "#ff4d6d", letterSpacing: -2 },
-  logoSIR: { fontSize: 28, fontWeight: 700, color: "#e8eaf0" },
-  headerSub: { margin: "0 0 20px", color: "#888", fontSize: 13 },
-  steps: { display: "flex", alignItems: "center" },
-  stepItem: { display: "flex", alignItems: "center", gap: 8 },
-  stepDot: { width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", transition: "all 0.3s" },
-  stepLabel: { fontSize: 13, color: "#ccc", whiteSpace: "nowrap" },
-  stepLine: { width: 32, height: 1, background: "rgba(255,255,255,0.12)", margin: "0 4px" },
-  main: { position: "relative", zIndex: 1, padding: "32px 40px", maxWidth: 1400, margin: "0 auto" },
-  workspace: { display: "grid", gridTemplateColumns: "1fr 360px", gap: 24, alignItems: "start" },
-  leftPanel: { display: "flex", flexDirection: "column", gap: 16 },
-  rightPanel: { display: "flex", flexDirection: "column", gap: 16 },
-  card: { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 24 },
-  cardTitle: { margin: "0 0 4px", fontSize: 16, fontWeight: 700 },
-  cardSub: { margin: "0 0 16px", fontSize: 12, color: "#666" },
-  modelList: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 },
-  modelItem: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)" },
-  progressWrap: { height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden", marginBottom: 8 },
-  progressBar: { height: "100%", background: "linear-gradient(90deg, #ff4d6d, #ff8c42)", borderRadius: 3, transition: "width 0.3s" },
-  btnAI: { width: "100%", background: "linear-gradient(135deg, #ff4d6d, #c23b8a)", border: "none", borderRadius: 12, padding: "14px", color: "#fff", fontWeight: 800, fontSize: 15, cursor: "pointer" },
-  btnSecondary: { background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "10px 20px", color: "#ccc", fontWeight: 600, fontSize: 14, cursor: "pointer" },
-};

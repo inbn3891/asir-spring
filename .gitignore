@@ -96,4 +96,5 @@ front/.pnp.js
 # [Exceptions]
 !**/gradle-wrapper.jar
 !**/src/main/**/build/
-!**/src/test/**/build/
+!**/src/test/**/build/flask-ai/models/
+*.pth

@@ -9,15 +9,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.asir.backend.domain.incident.dto.IncidentRequest;
 import com.asir.backend.domain.incident.repository.IncidentRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Transactional
 public class IncidentServiceIntegrationTest {
     @Autowired 
     private IncidentService incidentService;
@@ -28,9 +27,14 @@ public class IncidentServiceIntegrationTest {
     @Autowired
     private IncidentRepository repository;
 
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
+
     @AfterEach
     void tearDown() {
         repository.deleteAll(); // 테스트가 성공하든 실패하든 깔끔하게 비우기
+        redisTemplate.getConnectionFactory().getConnection().flushAll(); // Redis 초기화
+
     }
 
     @Test

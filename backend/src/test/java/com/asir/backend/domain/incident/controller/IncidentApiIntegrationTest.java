@@ -23,7 +23,7 @@ public class IncidentApiIntegrationTest {
     void report_Success_Integration() {
         IncidentRequest request = new IncidentRequest("12가3456", "http://video.url", "unique_hash_1");
         
-        ResponseEntity<Long> response = restTemplate.withBasicAuth("user", "password").postForEntity("/api/v1/incidents", request, Long.class);
+        ResponseEntity<Long> response = restTemplate.postForEntity("/api/v1/incidents", request, Long.class);
         
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isNotNull();

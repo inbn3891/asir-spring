@@ -17,6 +17,13 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    container_name: asir-redis
+    restart: always
+    ports:
+      - "6379:6379"
+
   dev:
     build:
       context: .
@@ -29,12 +36,17 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/asir_db
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_REDIS_HOST: redis        # ← 추가
+      SPRING_REDIS_PORT: 6379         # ← 추가
     ports:
       - "8080:8080"
       - "5173:5173"
     depends_on:
       db:
         condition: service_healthy
+      redis:                          # ← 추가
+        condition: service_started
+
 
 volumes:
   asir-db-data:
