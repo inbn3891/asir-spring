@@ -16,10 +16,9 @@
 
 > ⚠️ Flask AI 서버는 Dev Container 로컬 환경에서 동작합니다. 아래 영상에서 실제 작동 모습을 확인할 수 있습니다.
 
+<img width="600" height="647" alt="front5--MicrosoftEdge2026-04-1600-19-26-ezgif com-optimize" src="https://github.com/user-attachments/assets/0b526a87-16c2-4f6e-8fcb-bdc2ffc1f6cc" />
 
 <img width="600" height="647" alt="front5--MicrosoftEdge2026-04-1600-19-26-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/066d73f0-8921-4e9a-b9e0-410583b11426" />
-
-<img width="600" height="647" alt="front5--MicrosoftEdge2026-04-1600-19-26-ezgif com-optimize" src="https://github.com/user-attachments/assets/0b526a87-16c2-4f6e-8fcb-bdc2ffc1f6cc" />
 
 **EC2 배포 URL (Spring + React):** `http://13.124.137.139`
 
